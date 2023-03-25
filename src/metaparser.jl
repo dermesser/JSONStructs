@@ -1,6 +1,6 @@
 module Metaparser
 
-function parse_struct_expr(s::Expr)
+function parse_struct_expr(s::Expr, eval::Function)
     s.head == :struct || error("Expr must be struct but is $s")
     args = s.args[2:end]
     typedef = args[1]
@@ -43,25 +43,24 @@ function get_type_of_struct(s::Expr)
     end
 end
 
-function map_type_to_parse_method(::Type{<:Number})::Symbol
-    :take_num!
+function map_type_to_parse_method(::Type{<:Number}, mod::Expr, jparg::Symbol)::Expr
+    Expr(:call, :($mod.take_num!), jparg)
 end
-function map_type_to_parse_method(::Type{<:AbstractString})::Symbol
-    :take_str!
+function map_type_to_parse_method(::Type{<:AbstractString}, mod::Expr, jparg::Symbol)::Expr
+    Expr(:call, :($mod.take_str!), jparg)
 end
-function map_type_to_parse_method(::Type{Bool})::Symbol
-    :take_bool!
+function map_type_to_parse_method(::Type{Bool}, mod::Expr, jparg::Symbol)::Expr
+    Expr(:call, :($mod.take_bool!), jparg)
 end
-function map_type_to_parse_method(::Type{<:AbstractDict})::Symbol
-    :take_object!
+function map_type_to_parse_method(::Type{<:AbstractDict}, mod::Expr, jparg::Symbol)::Expr
+    Expr(:call, :($mod.take_object!), jparg)
 end
-function map_type_to_parse_method(::Type{<:AbstractVector})::Symbol
-    :take_list!
+function map_type_to_parse_method(::Type{<:AbstractVector}, mod::Expr, jparg::Symbol)::Expr
+    Expr(:call, :($mod.take_list!), jparg)
 end
-function map_type_to_parse_method(::Type{T})::Symbol where {T}
-    error("unexpected type")
+function map_type_to_parse_method(t::Type{T}, mod::Expr, jparg::Symbol)::Expr where {T}
     if isstructtype(T)
-        :take_struct!
+        Expr(:call, :($mod.take_struct!), t, jparg)
     else
         error("Unknown type $T for JSON parsing!")
     end
@@ -80,8 +79,8 @@ function check_variables_filled_expr(varnames::AbstractVector{Symbol})::Vector{E
     [check_var_cond(s) for s in varnames]
 end
 
-function json_parseable(strct)
-    typs::Vector{Pair{Symbol,Type}} = parse_struct_expr(strct)
+function json_parseable(strct, ev)
+    typs::Vector{Pair{Symbol,Type}} = parse_struct_expr(strct, ev)
     typ = get_type_of_struct(strct)
 
     fieldvars = [:($(name)::Union{$typ,Nothing} = nothing) for (name, typ) in typs]
@@ -89,11 +88,11 @@ function json_parseable(strct)
     fields_filled_cond = check_variables_filled_expr(fieldnames)
     Mod = :(JSONStructs.Parser)
 
-    methods = [(name, map_type_to_parse_method(typ)) for (name, typ) in typs]
+    methods = [(name, map_type_to_parse_method(typ, Mod, :jp)) for (name, typ) in typs]
     field_dispatch = [
         quote
             if !matched && key == $(string(name))
-                $name = $Mod.$(method)(jp)
+                $name = $method
                 matched = true
             end
         end for (name, method) in methods
@@ -139,7 +138,7 @@ function json_parseable(strct)
 end
 
 macro json_parseable(strct)
-    json_parseable(strct)
+    json_parseable(strct, x -> __module__.eval(x))
 end
 
 end

@@ -1,0 +1,4 @@
+name = "JSONStructs"
+uuid = "0621286d-cf8e-43d1-9911-199e53c1c825"
+authors = ["Lewin Bormann <lewin@lewin-bormann.info>"]
+version = "0.1.0"

@@ -116,16 +116,13 @@ function json_parseable(strct, ev)
     methods = [(name, typ, map_type_to_parse_method(typ, Mod, :jp)) for (name, typ) in typs]
     field_dispatch = [
         begin
-            fieldname = string(name)
-            typname = string(typ)
             quote
                 if !matched && key == $(string(name))
-                    val = $method
-                    $name = something(val)
+                    $name = something($methodcall)
                     matched = true
                 end
             end
-        end for (name, typ, method) in methods
+        end for (name, typ, methodcall) in methods
     ]
 
     quote
@@ -154,6 +151,7 @@ function json_parseable(strct, ev)
                     if isnothing(key)
                         break
                     end
+                    key = something(key)
 
                     $Mod.expect!(jp, ':') ||
                         $Mod.raise_error(jp, "malformed object - expected ':'")

@@ -119,7 +119,7 @@ function take_object_literal!(jp::JP)::Union{Nothing,Dict{String,Any}}
 
         val = take_val!(jp)
 
-        d[key] = val
+        d[something(key)] = something(val)
         if expect!(jp, ',')
             continue
         else
@@ -132,7 +132,7 @@ function take_object_literal!(jp::JP)::Union{Nothing,Dict{String,Any}}
     d
 end
 
-function take_str!(jp::JP)::Union{Nothing,String}
+function take_str!(jp::JP)::Union{Nothing,Some{Union{Nothing,String}}}
     expect!(jp, '"') || return nothing
 
     span = takewhile!(jp, (!=)('"'), false)
@@ -142,7 +142,7 @@ function take_str!(jp::JP)::Union{Nothing,String}
 
     expect!(jp, '"') || raise_error(jp, "unclosed string at $(jp.pos)")
     a, b = span
-    jp.s[a:b]
+    Some(jp.s[a:b])
 end
 
 function take_list!(jp::JP)::Union{Nothing,Some{Union{Nothing,Vector{Any}}}}
@@ -174,11 +174,11 @@ end
 function take_val!(jp::JP)::Union{Nothing,Some{Union{Nothing,Any}}}
     n = take_num!(jp)
     if !isnothing(n)
-        return Some(n)
+        return n
     end
     s = take_str!(jp)
     if !isnothing(s)
-        return Some(s)
+        return s
     end
     l = take_list!(jp)
     if !isnothing(l)

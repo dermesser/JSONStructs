@@ -41,5 +41,6 @@ Over `JSON.jl`:
 
 * You get strongly-typed parsing results instead of `Dict`s and `Any`s.
 * Performance is better. For very simple structs, e.g. two numeric fields, this package is already
-40% faster than the `JSON` package.
+40% faster than the `JSON` package. (Although this relation is often inverse for larger objects, i.e.
+`JSON.jl` is faster)
 

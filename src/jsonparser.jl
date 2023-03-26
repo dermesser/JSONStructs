@@ -53,6 +53,9 @@ end
 
 const FLOAT_CHARS = ['e', '.', '-']
 
+# The take_...! functions return nothing on parsing failure, or a value.
+# The value might be nothing (i.e., Some(nothing)) if the JSON object contained a null.
+
 function take_num!(jp::JP)::Union{Nothing,Some{Union{Nothing,Float64,Int}}}
     isfloatstr(c) = c in FLOAT_CHARS
     pred(c) = isdigit(c) || isfloatstr(c)
@@ -142,38 +145,40 @@ function take_str!(jp::JP)::Union{Nothing,String}
     jp.s[a:b]
 end
 
-function take_list!(jp::JP)::Union{Nothing,Vector{Any}}
-    expect!(jp, '[') || return nothing
+function take_list!(jp::JP)::Union{Nothing,Some{Union{Nothing,Vector{Any}}}}
+    if expect!(jp, '[')
+        l = Any[]
+        while true
+            o = take_val!(jp)
+            if isnothing(o)
+                break
+            else
+                push!(l, something(o))
+            end
 
-    l = Any[]
-    while true
-        o = take_val!(jp)
-        if isnothing(o)
-            break
-        else
-            push!(l, o)
+            if expect!(jp, ',')
+                continue
+            else
+                break
+            end
         end
 
-        if expect!(jp, ',')
-            continue
-        else
-            break
-        end
+        expect!(jp, ']') || raise_error(jp, "Missing closing ']' at $(jp.pos)")
+        Some(l)
+    else
+        return take_null!(jp)
     end
-
-    expect!(jp, ']') || raise_error(jp, "Missing closing ']' at $(jp.pos)")
-    l
 end
 
 """value is anything - object/list/number/boolean/string"""
-function take_val!(jp::JP)::Union{Nothing,Any}
+function take_val!(jp::JP)::Union{Nothing,Some{Union{Nothing,Any}}}
     n = take_num!(jp)
     if !isnothing(n)
-        return n
+        return Some(n)
     end
     s = take_str!(jp)
     if !isnothing(s)
-        return s
+        return Some(s)
     end
     l = take_list!(jp)
     if !isnothing(l)
@@ -185,7 +190,7 @@ function take_val!(jp::JP)::Union{Nothing,Any}
     end
     b = take_bool!(jp)
     if !isnothing(b)
-        return b
+        return Some(b)
     end
     nothing
 end
@@ -252,8 +257,8 @@ function parse_value(s::AbstractString)
 end
 
 """Parse a struct that is marked with @json_parseable."""
-function parse_struct(t::Type{T}, s::AbstractString)::T where {T}
-    something(take_struct!(t, JP(s)))
+function parse_struct(t::Type{T}, s::AbstractString)::Some{Union{Nothing,T}} where {T}
+    take_struct!(t, JP(s))
 end
 
 end

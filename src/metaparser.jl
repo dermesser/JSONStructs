@@ -116,19 +116,11 @@ function json_parseable(strct, ev)
     methods = [(name, typ, map_type_to_parse_method(typ, Mod, :jp)) for (name, typ) in typs]
     field_dispatch = [
         begin
-            fieldame = string(name)
+            fieldname = string(name)
             typname = string(typ)
             quote
                 if !matched && key == $(string(name))
                     val = $method
-                    if isnothing(val)
-                        fieldname = $fieldname
-                        typname = $typname
-                        $Mod.raise_error(
-                            jp,
-                            "Field $fieldname has wrong type! (expected $typname)",
-                        )
-                    end
                     $name = something(val)
                     matched = true
                 end
@@ -142,14 +134,17 @@ function json_parseable(strct, ev)
         function $Mod.take_struct!(
             ::Type{$typ},
             jp::$(Mod).JP,
-        )::Union{Nothing,Some{Union{Nothing,$typ}}}
+        )::Some{Union{Nothing,$typ}}
             $(fieldvars...)
 
             ob = $Mod.expect!(jp, '{')
             if !ob
                 n = $Mod.take_null!(jp)
                 if isnothing(n)
-                    return nothing
+                    $Mod.raise_error(
+                        jp,
+                        "malformed object: expected object start '{' or null",
+                    )
                 end
                 # object is null, try returning default values (nothing)
                 return Some(nothing)

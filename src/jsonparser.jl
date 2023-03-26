@@ -53,16 +53,20 @@ end
 
 const FLOAT_CHARS = ['e', '.', '-']
 
-function take_num!(jp::JP)::Union{Nothing,Float64,Int}
+function take_num!(jp::JP)::Union{Nothing,Some{Union{Nothing,Float64,Int}}}
     isfloatstr(c) = c in FLOAT_CHARS
     pred(c) = isdigit(c) || isfloatstr(c)
     span = takewhile!(jp, pred)
     if isnothing(span)
-        nothing
+        if !isnothing(take_null!(jp))
+            Some(nothing)
+        else
+            nothing
+        end
     else
         a, b = span
         s = (@view jp.s[a:b])
-        parse(Float64, s)
+        Some(parse(Float64, s))
     end
 end
 

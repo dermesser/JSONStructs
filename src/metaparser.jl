@@ -120,15 +120,16 @@ function json_parseable(strct, ev)
             typname = string(typ)
             quote
                 if !matched && key == $(string(name))
-                    $name = $method
-                    if isnothing($name)
+                    val = $method
+                    if isnothing(val)
                         fieldname = $fieldname
                         typname = $typname
-                        la = $Mod.lookahead_word(jp)
-                        error(
-                            "Field $fieldname has wrong type! (expected $typname, have token '$la')",
+                        $Mod.raise_error(
+                            jp,
+                            "Field $fieldname has wrong type! (expected $typname)",
                         )
                     end
+                    $name = something(val)
                     matched = true
                 end
             end
@@ -138,38 +139,50 @@ function json_parseable(strct, ev)
     quote
         $strct
 
-        function $Mod.take_struct!(::Type{$typ}, jp::$(Mod).JP)::Union{Nothing,$typ}
-            $Mod.expect!(jp, '{') || return nothing
-
+        function $Mod.take_struct!(
+            ::Type{$typ},
+            jp::$(Mod).JP,
+        )::Union{Nothing,Some{Union{Nothing,$typ}}}
             $(fieldvars...)
 
-            while true
-                key = $Mod.take_str!(jp)
-                if isnothing(key)
-                    break
+            ob = $Mod.expect!(jp, '{')
+            if !ob
+                n = $Mod.take_null!(jp)
+                if isnothing(n)
+                    return nothing
+                end
+                # object is null, try returning default values (nothing)
+                return Some(nothing)
+            else
+                while true
+                    key = $Mod.take_str!(jp)
+                    if isnothing(key)
+                        break
+                    end
+
+                    $Mod.expect!(jp, ':') ||
+                        $Mod.raise_error(jp, "malformed object - expected ':'")
+
+                    matched = false
+                    $(field_dispatch...)
+
+                    if !matched
+                        $Mod.take_val!(jp)
+                    end
+
+                    if $Mod.expect!(jp, ',')
+                        continue
+                    else
+                        break
+                    end
                 end
 
-                $Mod.expect!(jp, ':') || error("malformed object - expected ':'")
+                $(fields_filled_cond...)
 
-                matched = false
-                $(field_dispatch...)
-
-                if !matched
-                    $Mod.take_val!(jp)
-                end
-
-                if $Mod.expect!(jp, ',')
-                    continue
-                else
-                    break
-                end
+                $Mod.expect!(jp, '}') || $Mod.raise_error("unclosed object")
             end
 
-            $(fields_filled_cond...)
-
-            $Mod.expect!(jp, '}') || error("unclosed object")
-
-            $(typ)($(fieldnames...))
+            Some($(typ)($(fieldnames...)))
         end
     end |> esc
 end

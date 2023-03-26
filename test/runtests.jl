@@ -52,6 +52,12 @@ function test_parse_5()
     want = WithOptional(nothing, nothing)
     @assert string(have) == string(want) "$have == $want"
 end
+function test_parse_6()
+    json = "{\"b\": nul}"
+    have = parse_struct(WithOptional, json)
+    want = WithOptional(nothing, nothing)
+    @assert string(have) == string(want) "$have == $want"
+end
 
 println("Starting JSONStructs test")
 test_parse_1()
@@ -59,3 +65,4 @@ test_parse_2()
 test_parse_3()
 test_parse_4()
 test_parse_5()
+test_parse_6()

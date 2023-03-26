@@ -3,6 +3,23 @@ module Parser
 
 const Optional{T} = Union{T,Nothing}
 
+"""A JSON parsing exception."""
+struct JSONException
+    pos::Int
+    tok::String
+    reason::String
+end
+
+function Base.show(io::IO, je::JSONException)
+    print(
+        io,
+        "JSONException: " *
+        je.reason *
+        " at position $(je.pos), unexpected token: " *
+        je.tok,
+    )
+end
+
 # JSON parser struct.
 mutable struct JP
     s::String
@@ -12,6 +29,10 @@ end
 
 @inline function JP(s::AbstractString)::JP
     JP(string(s), 1, length(s))
+end
+
+@inline function raise_error(jp::JP, reason::AbstractString = "")::JSONException
+    throw(JSONException(jp.pos, lookahead_word(jp), reason))
 end
 
 @inline function current(jp::JP)::Char
@@ -46,16 +67,37 @@ function take_num!(jp::JP)::Union{Nothing,Float64,Int}
 end
 
 function take_bool!(jp::JP)::Union{Nothing,Bool}
-    if expect_prefix!(jp, "true")
+    if expect!(jp, "true")
         true
-    elseif expect_prefix!(jp, "false")
+    elseif expect!(jp, "false")
         false
     else
         nothing
     end
 end
 
-function take_object!(jp::JP)::Union{Nothing,Dict{String,Any}}
+function take_object!(jp::JP)::Union{Nothing,Some{Union{Nothing,Dict{String,Any}}}}
+    d = take_object_literal!(jp)
+    if isnothing(d)
+        if isnothing(take_null!(jp))
+            nothing
+        else
+            Some(nothing)
+        end
+    else
+        Some(d)
+    end
+end
+
+function take_null!(jp::JP)::Union{Some{Nothing},Nothing}
+    if expect!(jp, "null")
+        Some(nothing)
+    else
+        nothing
+    end
+end
+
+function take_object_literal!(jp::JP)::Union{Nothing,Dict{String,Any}}
     expect!(jp, '{') || return nothing
 
     d = Dict{String,Any}()
@@ -66,7 +108,7 @@ function take_object!(jp::JP)::Union{Nothing,Dict{String,Any}}
             break
         end
 
-        expect!(jp, ':') || error("malformatted object - expecting ':'")
+        expect!(jp, ':') || raise_error(jp, "malformatted object - expecting ':'")
 
         val = take_val!(jp)
 
@@ -79,7 +121,7 @@ function take_object!(jp::JP)::Union{Nothing,Dict{String,Any}}
         end
     end
 
-    expect!(jp, '}') || error("Unclosed object - '}' missing")
+    expect!(jp, '}') || raise_error(jp, "Unclosed object - '}' missing")
     d
 end
 
@@ -88,10 +130,10 @@ function take_str!(jp::JP)::Union{Nothing,String}
 
     span = takewhile!(jp, (!=)('"'), false)
     if isnothing(span)
-        error("unclosed string at $(jp.pos)")
+        raise_error(jp, "unclosed string at $(jp.pos)")
     end
 
-    expect!(jp, '"') || error("unclosed string at $(jp.pos)")
+    expect!(jp, '"') || raise_error(jp, "unclosed string at $(jp.pos)")
     a, b = span
     jp.s[a:b]
 end
@@ -115,7 +157,7 @@ function take_list!(jp::JP)::Union{Nothing,Vector{Any}}
         end
     end
 
-    expect!(jp, ']') || error("Missing closing ']' at $(jp.pos)")
+    expect!(jp, ']') || raise_error(jp, "Missing closing ']' at $(jp.pos)")
     l
 end
 
@@ -144,8 +186,8 @@ function take_val!(jp::JP)::Union{Nothing,Any}
     nothing
 end
 
-function take_struct!(t::Type{T}, ::JP)::Union{Nothing,T} where {T}
-    error("JSON Parsing not implemented for type $t")
+function take_struct!(t::Type{T}, jp::JP)::Union{Nothing,T} where {T}
+    raise_error(jp, "JSON Parsing not implemented for type $t")
 end
 
 function strip_ws!(jp::JP)
@@ -179,7 +221,7 @@ end
     end
 end
 
-function expect_prefix!(jp::JP, pref::AbstractString)::Bool
+function expect!(jp::JP, pref::AbstractString)::Bool
     strip_ws!(jp)
     pl = length(pref)
 
@@ -207,7 +249,7 @@ end
 
 """Parse a struct that is marked with @json_parseable."""
 function parse_struct(t::Type{T}, s::AbstractString)::T where {T}
-    take_struct!(t, JP(s))
+    something(take_struct!(t, JP(s)))
 end
 
 end

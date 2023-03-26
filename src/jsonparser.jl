@@ -1,6 +1,8 @@
 
 module Parser
 
+const Optional{T} = Union{T,Nothing}
+
 # JSON parser struct.
 mutable struct JP
     s::String
@@ -187,6 +189,14 @@ function expect_prefix!(jp::JP, pref::AbstractString)::Bool
     else
         false
     end
+end
+
+function lookahead_word(jp::JP)::String
+    i = jp.pos
+    while !isspace(jp.s[i]) && i < jp.length
+        i += 1
+    end
+    jp.s[jp.pos:i-1]
 end
 
 """Parse a json value.."""

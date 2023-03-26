@@ -1,12 +1,12 @@
 module JSONStructs
 
-include("metaparser.jl")
 include("jsonparser.jl")
+include("metaparser.jl")
 
-import .Parser: parse_struct, parse_value
+import .Parser: Optional, parse_struct, parse_value
 import .Metaparser: @json_parseable
 
 export @json_parseable
-export parse_value, parse_struct
+export Optional, parse_value, parse_struct
 
 end # module JSONStructs

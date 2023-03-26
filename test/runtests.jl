@@ -1,11 +1,11 @@
 # Some basic tests.
 
-using JSONStructs
+using JSONStructs  # Imports Optional, parse_struct, @json_parseable
 
 @json_parseable struct TestStruct1
-    a::Int
-    b::Float64
-    c::Vector{String}
+    a::Int  # Mandatory field
+    b::Optional{Float64}  # Might be present (otherwise `nothing`)
+    c::Vector{String}  # List field
 end
 
 function test_parse_1()

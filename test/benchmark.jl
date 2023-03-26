@@ -27,8 +27,12 @@ const Test_JSON_string_short = """
 function benchmark_comparison_full(s::String)
     println("benchmark: ", s)
     @show parse_struct(OuterStruct, s)
-    println("JSONStructs")
+
+    println("JSONStructs parse_struct")
     display(@benchmark parse_struct(OuterStruct, $s))
+
+    println("JSONStructs parse_value")
+    display(@benchmark parse_value($s))
 
     println("JSON")
     display(@benchmark JSON.parse($s))

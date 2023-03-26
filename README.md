@@ -13,21 +13,20 @@ Regardless, you might want to use it instead of this immature package.
 See e.g. `tests/runtests.jl` for a short example:
 
 ```julia
-using JSONStructs
+using JSONStructs  # Imports Optional, parse_struct, @json_parseable
 
 @json_parseable struct TestStruct1
-    a::Int
-    b::Float64
-    c::Vector{String}
+    a::Int  # Mandatory field
+    b::Optional{Float64}  # Might be present (otherwise `nothing`)
+    c::Vector{String}  # List field
 end
 
 function test_parse_1()
     json = "{\"a\": 33, \"b\": 55.55, \"c\": [\"xyz\", \"abc\"]}"
-    have = parse_struct(TestStruct1, json)
+    have = something(parse_struct(TestStruct1, json))
     want = TestStruct1(33, 55.55, ["xyz", "abc"])
     @assert string(have) == string(want) "$have == $want"
 end
-
 ```
 
 The `@json_parseable` macro parses the struct (Note: this might fail if you define constructors or a
